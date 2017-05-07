@@ -27,6 +27,52 @@ numbers.push(5);
 // won't print anything, nor is `sum` re-evaluated
 ```
 
+
+## Caution about dependency detection
+
+The `autorun` mechanism dynamically gathers all of its dependencies during each run. `mobx` will register an observable as a dependency if it's accessed during an execution of the `autorun` function. Because of this fact, take special care to ensure that any dependencies which you mean to have are really accessed when they have to be a dependency. For example avoid using early returns like below before accessing any dependency, because the `autorun` will stop working and will get into a *zombie* state, having no dependencies.
+
+```javascript
+// a non-observable variable
+let shouldRun = false;
+let value = observable(5);
+
+// this autorun will not gather any dependency at first run due to the early return, so it won't run any more
+const disposer = autorun(() => {
+  if (!shouldRun) return;
+  console.log(value.get());
+});
+```
+
+As a possible solution, ensure that every variable which is a dependency of the `autorun` is observable.
+
+```javascript
+// every dependency is observable
+let shouldRun = observable(false);
+let value = observable(5);
+
+// this autorun will work properly
+const disposer = autorun(() => {
+  if (!shouldRun.get()) return;
+  console.log(value.get());
+});
+```
+
+If you can't create an observable from `shouldRun`, access the dependency before the early return for example like this.
+
+```javascript
+// every dependency is observable
+let shouldRun = false;
+let value = observable(5);
+
+// this autorun will work properly
+const disposer = autorun(() => {
+  const somethingToLog = value.get(); // gather dependencies in any case
+  if (!shouldRun.get()) return;
+  console.log(somethingToLog);
+});
+```
+
 ## Error handling
 
 Exceptions thrown in autorun and all other types reactions are catched and logged to the console, but not propagated back to the original causing code.
